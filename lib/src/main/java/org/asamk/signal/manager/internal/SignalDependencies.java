@@ -38,12 +38,13 @@ import org.whispersystems.signalservice.api.util.CredentialsProvider;
 import org.whispersystems.signalservice.api.util.UptimeSleepTimer;
 import org.whispersystems.signalservice.api.websocket.SignalWebSocket;
 import org.whispersystems.signalservice.internal.push.PushServiceSocket;
-import org.whispersystems.signalservice.internal.websocket.OkHttpWebSocketConnection;
+import org.whispersystems.signalservice.internal.websocket.LibSignalChatConnection;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -152,7 +153,10 @@ public class SignalDependencies {
 
     public Network getLibSignalNetwork() {
         return getOrCreate(() -> libSignalNetwork, () -> {
-            libSignalNetwork = new Network(serviceEnvironmentConfig.netEnvironment(), userAgent);
+            libSignalNetwork = new Network(serviceEnvironmentConfig.netEnvironment(),
+                    userAgent,
+                    Map.of(),
+                    Network.BuildVariant.PRODUCTION);
             setSignalNetworkProxy(libSignalNetwork);
         });
     }
@@ -283,13 +287,12 @@ public class SignalDependencies {
             final var timer = new UptimeSleepTimer();
             final var healthMonitor = new SignalWebSocketHealthMonitor(timer);
 
-            authenticatedSignalWebSocket = new SignalWebSocket.AuthenticatedWebSocket(() -> new OkHttpWebSocketConnection(
+            authenticatedSignalWebSocket = new SignalWebSocket.AuthenticatedWebSocket(() -> new LibSignalChatConnection(
                     "normal",
-                    serviceEnvironmentConfig.signalServiceConfiguration(),
-                    Optional.of(credentialsProvider),
-                    userAgent,
-                    healthMonitor,
-                    allowStories), () -> true, timer, TimeUnit.SECONDS.toMillis(10));
+                    getLibSignalNetwork(),
+                    credentialsProvider,
+                    allowStories,
+                    healthMonitor), () -> true, timer, TimeUnit.SECONDS.toMillis(10));
             healthMonitor.monitor(authenticatedSignalWebSocket);
         });
     }
@@ -299,13 +302,12 @@ public class SignalDependencies {
             final var timer = new UptimeSleepTimer();
             final var healthMonitor = new SignalWebSocketHealthMonitor(timer);
 
-            unauthenticatedSignalWebSocket = new SignalWebSocket.UnauthenticatedWebSocket(() -> new OkHttpWebSocketConnection(
+            unauthenticatedSignalWebSocket = new SignalWebSocket.UnauthenticatedWebSocket(() -> new LibSignalChatConnection(
                     "unidentified",
-                    serviceEnvironmentConfig.signalServiceConfiguration(),
-                    Optional.empty(),
-                    userAgent,
-                    healthMonitor,
-                    allowStories), () -> true, timer, TimeUnit.SECONDS.toMillis(10));
+                    getLibSignalNetwork(),
+                    null,
+                    allowStories,
+                    healthMonitor), () -> true, timer, TimeUnit.SECONDS.toMillis(10));
             healthMonitor.monitor(unauthenticatedSignalWebSocket);
         });
     }
@@ -326,7 +328,9 @@ public class SignalDependencies {
                         Optional.empty(),
                         executor,
                         ServiceConfig.MAX_ENVELOPE_SIZE,
-                        () -> true));
+                        () -> true,
+                        false,
+                        true));
     }
 
     public List<SecureValueRecovery> getSecureValueRecovery() {
@@ -353,7 +357,7 @@ public class SignalDependencies {
     }
 
     public SignalServiceCipher getCipher(ServiceIdType serviceIdType) {
-        final var certificateValidator = new CertificateValidator(serviceEnvironmentConfig.unidentifiedSenderTrustRoot());
+        final var certificateValidator = new CertificateValidator(serviceEnvironmentConfig.unidentifiedSenderTrustRoots());
         final var address = new SignalServiceAddress(credentialsProvider.getAci(), credentialsProvider.getE164());
         final var deviceId = credentialsProvider.getDeviceId();
         return new SignalServiceCipher(address,

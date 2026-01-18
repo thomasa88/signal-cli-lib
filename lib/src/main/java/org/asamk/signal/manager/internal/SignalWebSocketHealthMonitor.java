@@ -7,7 +7,6 @@ import org.whispersystems.signalservice.api.util.SleepTimer;
 import org.whispersystems.signalservice.api.websocket.HealthMonitor;
 import org.whispersystems.signalservice.api.websocket.SignalWebSocket;
 import org.whispersystems.signalservice.api.websocket.WebSocketConnectionState;
-import org.whispersystems.signalservice.internal.websocket.OkHttpWebSocketConnection;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -23,7 +22,7 @@ final class SignalWebSocketHealthMonitor implements HealthMonitor {
     /**
      * This is the amount of time in between sent keep alives. Must be greater than [KEEP_ALIVE_TIMEOUT]
      */
-    private static final long KEEP_ALIVE_SEND_CADENCE = TimeUnit.SECONDS.toMillis(OkHttpWebSocketConnection.KEEPALIVE_FREQUENCY_SECONDS);
+    private static final long KEEP_ALIVE_SEND_CADENCE = TimeUnit.SECONDS.toMillis(30);
 
     /**
      * This is the amount of time we will wait for a response to the keep alive before we consider the websockets dead.
@@ -56,7 +55,10 @@ final class SignalWebSocketHealthMonitor implements HealthMonitor {
                     .distinctUntilChanged()
                     .subscribe(this::onStateChanged);
 
-            webSocket.setKeepAliveChangedListener(this::updateKeepAliveSenderStatus);
+            webSocket.addKeepAliveChangeListener(() -> {
+                executor.execute(this::updateKeepAliveSenderStatus);
+                return Unit.INSTANCE;
+            });
         });
     }
 
@@ -78,7 +80,7 @@ final class SignalWebSocketHealthMonitor implements HealthMonitor {
     public void onMessageError(int status, boolean isIdentifiedWebSocket) {
     }
 
-    private Unit updateKeepAliveSenderStatus() {
+    private void updateKeepAliveSenderStatus() {
         if (keepAliveSender == null && sendKeepAlives()) {
             keepAliveSender = new KeepAliveSender();
             keepAliveSender.start();
@@ -86,7 +88,6 @@ final class SignalWebSocketHealthMonitor implements HealthMonitor {
             keepAliveSender.shutdown();
             keepAliveSender = null;
         }
-        return Unit.INSTANCE;
     }
 
     private boolean sendKeepAlives() {

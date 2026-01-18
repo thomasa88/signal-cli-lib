@@ -273,6 +273,16 @@ public class DbusManagerImpl implements Manager {
     }
 
     @Override
+    public List<Group> getGroups(final Collection<GroupId> groupIds) {
+        final var groups = signal.listGroups();
+        return groups.stream()
+                .map(Signal.StructGroup::getObjectPath)
+                .map(this::getGroup)
+                .filter(g -> groupIds.contains(g.groupId()))
+                .toList();
+    }
+
+    @Override
     public SendGroupMessageResults quitGroup(
             final GroupId groupId,
             final Set<RecipientIdentifier.Single> groupAdmins
@@ -454,6 +464,7 @@ public class DbusManagerImpl implements Manager {
             final RecipientIdentifier.Single targetAuthor,
             final long targetSentTimestamp,
             final Set<RecipientIdentifier> recipients,
+            final boolean notifySelf,
             final boolean isStory
     ) throws IOException, NotAGroupMemberException, GroupNotFoundException, GroupSendingNotAllowedException {
         return handleMessage(recipients,
@@ -498,6 +509,38 @@ public class DbusManagerImpl implements Manager {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public SendMessageResults sendPollCreateMessage(
+            final String question,
+            final boolean allowMultiple,
+            final List<String> options,
+            final Set<RecipientIdentifier> recipients,
+            final boolean notifySelf
+    ) throws IOException, NotAGroupMemberException, GroupNotFoundException, GroupSendingNotAllowedException, UnregisteredRecipientException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public SendMessageResults sendPollVoteMessage(
+            final RecipientIdentifier.Single targetAuthor,
+            final long targetSentTimestamp,
+            final List<Integer> optionIndexes,
+            final int voteCount,
+            final Set<RecipientIdentifier> recipients,
+            final boolean notifySelf
+    ) throws IOException, NotAGroupMemberException, GroupNotFoundException, GroupSendingNotAllowedException, UnregisteredRecipientException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public SendMessageResults sendPollTerminateMessage(
+            final long targetSentTimestamp,
+            final Set<RecipientIdentifier> recipients,
+            final boolean notifySelf
+    ) throws IOException, NotAGroupMemberException, GroupNotFoundException, GroupSendingNotAllowedException, UnregisteredRecipientException {
+        throw new UnsupportedOperationException();
+    }
+
     public void hideRecipient(final RecipientIdentifier.Single recipient) {
         throw new UnsupportedOperationException();
     }
@@ -520,7 +563,7 @@ public class DbusManagerImpl implements Manager {
             final String nickGivenName,
             final String nickFamilyName,
             final String note
-    ) throws NotPrimaryDeviceException {
+    ) {
         signal.setContactName(recipient.getIdentifier(), givenName);
     }
 
@@ -921,6 +964,9 @@ public class DbusManagerImpl implements Manager {
                                 Optional.empty(),
                                 Optional.empty(),
                                 List.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
                                 getMentions(extras),
                                 List.of(),
                                 List.of())),
@@ -964,6 +1010,9 @@ public class DbusManagerImpl implements Manager {
                                         Optional.empty(),
                                         Optional.empty(),
                                         List.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
                                         getMentions(extras),
                                         List.of(),
                                         List.of()))),
@@ -1039,6 +1088,9 @@ public class DbusManagerImpl implements Manager {
                                         Optional.empty(),
                                         Optional.empty(),
                                         List.of(),
+                                        Optional.empty(),
+                                        Optional.empty(),
+                                        Optional.empty(),
                                         getMentions(extras),
                                         List.of(),
                                         List.of())),

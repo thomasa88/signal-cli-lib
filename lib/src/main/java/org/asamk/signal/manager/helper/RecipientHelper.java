@@ -6,17 +6,18 @@ import org.asamk.signal.manager.api.UsernameLinkUrl;
 import org.asamk.signal.manager.internal.SignalDependencies;
 import org.asamk.signal.manager.storage.SignalAccount;
 import org.asamk.signal.manager.storage.recipients.RecipientId;
+import org.signal.core.models.ServiceId;
+import org.signal.core.models.ServiceId.ACI;
+import org.signal.core.models.ServiceId.PNI;
 import org.signal.libsignal.usernames.BaseUsernameException;
 import org.signal.libsignal.usernames.Username;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.whispersystems.signalservice.api.cds.CdsiV2Service;
-import org.whispersystems.signalservice.api.push.ServiceId;
-import org.whispersystems.signalservice.api.push.ServiceId.ACI;
-import org.whispersystems.signalservice.api.push.ServiceId.PNI;
 import org.whispersystems.signalservice.api.push.SignalServiceAddress;
 import org.whispersystems.signalservice.api.push.exceptions.CdsiInvalidArgumentException;
 import org.whispersystems.signalservice.api.push.exceptions.CdsiInvalidTokenException;
+import org.whispersystems.signalservice.api.push.exceptions.NonSuccessfulResponseCodeException;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -68,7 +69,7 @@ public class RecipientHelper {
                 .toSignalServiceAddress();
     }
 
-    public Set<RecipientId> resolveRecipients(Collection<RecipientIdentifier.Single> recipients) throws UnregisteredRecipientException {
+    public Set<RecipientId> resolveRecipients(Collection<RecipientIdentifier.Single> recipients) throws UnregisteredRecipientException, IOException {
         final var recipientIds = new HashSet<RecipientId>(recipients.size());
         for (var number : recipients) {
             final var recipientId = resolveRecipient(number);
@@ -91,7 +92,14 @@ public class RecipientHelper {
                 }
             });
         } else if (recipient instanceof RecipientIdentifier.Username(String username)) {
-            return resolveRecipientByUsernameOrLink(username, false);
+            try {
+                return resolveRecipientByUsernameOrLink(username, false);
+            } catch (Exception e) {
+                throw new UnregisteredRecipientException(new org.asamk.signal.manager.api.RecipientAddress(null,
+                        null,
+                        null,
+                        username));
+            }
         }
         throw new AssertionError("Unexpected RecipientIdentifier: " + recipient);
     }
@@ -99,7 +107,7 @@ public class RecipientHelper {
     public RecipientId resolveRecipientByUsernameOrLink(
             String username,
             boolean forceRefresh
-    ) throws UnregisteredRecipientException {
+    ) throws UnregisteredRecipientException, IOException {
         final Username finalUsername;
         try {
             finalUsername = getUsernameFromUsernameOrLink(username);
@@ -108,18 +116,25 @@ public class RecipientHelper {
         }
         if (forceRefresh) {
             try {
-                final var aci = handleResponseException(dependencies.getUsernameApi().getAciByUsername(finalUsername));
+                @SuppressWarnings("unchecked") final var aci = (ACI) handleResponseException(dependencies.getUsernameApi()
+                        .getAciByUsername(finalUsername));
                 return account.getRecipientStore().resolveRecipientTrusted(aci, finalUsername.getUsername());
-            } catch (IOException e) {
-                throw new UnregisteredRecipientException(new org.asamk.signal.manager.api.RecipientAddress(null,
-                        null,
-                        null,
-                        username));
+            } catch (NonSuccessfulResponseCodeException e) {
+                if (e.code == 404) {
+                    throw new UnregisteredRecipientException(new org.asamk.signal.manager.api.RecipientAddress(null,
+                            null,
+                            null,
+                            username));
+                }
+                logger.debug("Failed to get uuid for username: {}", username, e);
+                throw e;
             }
         }
         return account.getRecipientStore().resolveRecipientByUsername(finalUsername.getUsername(), () -> {
             try {
-                return handleResponseException(dependencies.getUsernameApi().getAciByUsername(finalUsername));
+                @SuppressWarnings("unchecked") final var result = (ACI) handleResponseException(dependencies.getUsernameApi()
+                        .getAciByUsername(finalUsername));
+                return result;
             } catch (Exception e) {
                 return null;
             }

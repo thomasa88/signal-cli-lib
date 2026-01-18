@@ -2,6 +2,87 @@
 
 ## [Unreleased]
 
+## [0.13.22] - 2025-11-14
+
+Requires libsignal-client version 0.86.1.
+
+### Fixed
+
+- Fix timeout handling for receive command
+- Fix device link URI parsing for unencoded trailing =
+- Adapt setPin command to server changes
+
+## [0.13.21] - 2025-10-25
+
+Requires libsignal-client version 0.84.0.
+
+### Changed
+
+- Add isExpirationUpdate to json message output
+- Improve error message when using verify without registering before
+
+## [0.13.20] - 2025-09-23
+
+Requires libsignal-client version 0.81.0.
+
+### Fixed
+
+- Fix sending group message to legacy targets without group send endorsements
+- Fix registration commands in daemon mode for already registered accounts (Thanks @AntonKun)
+
+### Improved
+
+- Faster shutdown performance when using multiple accounts
+
+## [0.13.19] - 2025-09-15
+
+Requires libsignal-client version 0.80.2.
+
+### Fixed
+
+- Fixed hiding contacts (with `removeContact --hide`)
+- Prevent splitting UTF-8 chars when reading message from stdin
+- Handle unregistered username correctly when sending message
+
+### Changed
+
+- Update to signal service changes, mainly new group endorsements for group sending
+- Reduced frequency of updating last received timstamp on disk
+- Handle missing storage manifest version correctly
+- Force a group refresh when using listGroups command with groupId
+
+## [0.13.18] - 2025-07-16
+
+Requires libsignal-client version 0.76.3.
+
+### Added
+
+- Added `--view-once` parameter to send command to send view once images
+
+### Fixed
+
+- Handle rate limit exception correctly when querying usernames
+
+### Improved
+
+- Shut down when dbus daemon connection goes away unexpectedly
+- In daemon mode, exit immediately if account check fails at startup
+- Improve behavior when sending to devices that have no available prekeys
+
+## [0.13.17] - 2025-06-28
+
+Requires libsignal-client version 0.76.0.
+
+### Fixed
+
+- Fix issue when loading an older inactive group
+- Close attachment input streams after upload
+- Fix storage sync behavior with unhandled fields
+
+### Changed
+
+- Improve behavior when pin data doesn't exist on the server
+
 ## [0.13.16] - 2025-06-07
 
 Requires libsignal-client version 0.73.2.
